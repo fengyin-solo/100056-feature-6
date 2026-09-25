@@ -42,8 +42,21 @@ class Store:
             {"label": "今日新增", "value": sum(int(item["created"]) for item in modules)},
             {"label": "待处理", "value": sum(int(item["pending"]) for item in modules)},
             {"label": "异常量", "value": sum(int(item["abnormal"]) for item in modules)},
+            # 遗留问题合计与检修任务列表同源，转派后两个入口的数自然对得上
+            {"label": "遗留问题", "value": leftover_total(self.rows("task"))},
         ]
         return {"cards": cards, "modules": modules}
+
+
+def leftover_total(rows: list[dict[str, Any]]) -> int:
+    """汇总检修任务的遗留问题数；非数字的历史数据按 0 计，不拖垮合计。"""
+    total = 0
+    for row in rows:
+        try:
+            total += int(str(row.get("遗留问题数")).strip())
+        except (TypeError, ValueError):
+            continue
+    return total
 
 
 store = Store()

@@ -28,6 +28,36 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class BatchReassignPayload(BaseModel):
+    """批量转派检修任务：一批任务编号 + 同一批检修人员。"""
+
+    ids: list[int] = Field(default_factory=list)
+    assignee: str = ""
+
+
+class BatchReassignItem(BaseModel):
+    """批量转派里单条任务的处理结果。"""
+
+    id: int
+    code: str = ""
+    ok: bool
+    flagged: bool = False  # 遗留问题数超过检修项目数，需要单独标出
+    message: str
+    entry: dict[str, Any] | None = None
+
+
+class BatchReassignResult(BaseModel):
+    """批量转派的汇总结果：逐条结果之外再给一份计数，方便列表核对。"""
+
+    ok: bool
+    message: str
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    flagged: int = 0
+    results: list[BatchReassignItem] = Field(default_factory=list)
+
+
 
 class SectionEntry(BaseModel):
     """线路区段明细结构。"""

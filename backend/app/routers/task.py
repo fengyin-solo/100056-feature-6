@@ -1,11 +1,11 @@
-"""检修任务接口：维护检修任务，覆盖开始任务、提交验收、确认完成等动作。"""
+"""检修任务接口：维护检修任务，覆盖开始任务、提交验收、确认完成与批量转派。"""
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas import ActionResult, EntryPayload, PageResult
+from app.schemas import ActionResult, BatchReassignPayload, BatchReassignResult, EntryPayload, PageResult
 from app.services.task import TaskService
 
 router = APIRouter(prefix="/api/task", tags=["检修任务"])
@@ -28,6 +28,25 @@ def list_entries(
         raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
     items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
     return PageResult(items=items, total=total, page=page, size=size)
+
+
+@router.get("/stats")
+def get_stats() -> dict[str, Any]:
+    """列表上方的统计卡：待开始、检修中条数与遗留问题合计，跟随任务数据实时变化。"""
+    return {"cards": service.stats()}
+
+
+@router.get("/export")
+def export_entries() -> dict[str, Any]:
+    """导出检修任务清单：返回当前过滤条件下的全量数据。"""
+    items, total = service.list_entries(page=1, size=10000)
+    return {"module": "task", "total": total, "items": items}
+
+
+@router.post("/batch-reassign", response_model=BatchReassignResult)
+def batch_reassign(payload: BatchReassignPayload) -> BatchReassignResult:
+    """把勾选的检修任务批量转派给同一批检修人员，逐条返回结果；失败的留在原状态。"""
+    return BatchReassignResult(**service.batch_reassign(payload.ids, payload.assignee))
 
 
 @router.get("/{entry_id}", response_model=dict)
@@ -56,10 +75,3 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     if entry is None:
         return ActionResult(ok=False, message=message)
     return ActionResult(ok=True, message=message, entry=entry)
-
-
-@router.get("/export")
-def export_entries() -> dict[str, Any]:
-    """导出检修任务清单：返回当前过滤条件下的全量数据。"""
-    items, total = service.list_entries(page=1, size=10000)
-    return {"module": "task", "total": total, "items": items}
