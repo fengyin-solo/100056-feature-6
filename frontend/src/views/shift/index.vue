@@ -65,15 +65,19 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchJson, request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
 
 const ENDPOINT = '/api/shift'
 const columns = ["交接编号", "值班班组", "值班人员", "交接时间", "交接事项", "遗留事项", "接收人员", "交接状态"]
 const actions = ["开始交接", "确认接收", "补录记录"]
-const statuses = ["待交接", "交接中", "已交接", "已补录"]
-const stats = [{"label": "待交接记录", "value": 0}, {"label": "今日交接次数", "value": 0}, {"label": "遗留事项数", "value": 0}]
+
+const stats = ref([
+  { label: '待交接记录', value: 0 },
+  { label: '今日交接次数', value: 0 },
+  { label: '遗留事项数', value: 0 },
+])
 
 const rows = ref<Row[]>([])
 const total = ref(0)
@@ -104,9 +108,22 @@ async function runAction(action: string, row: Row) {
     if (!response.ok) {
       throw new Error('值班交接动作未生效，请稍后重试')
     }
-    await reload()
+    await Promise.all([reload(), loadSummary()])
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '值班交接操作失败'
+  }
+}
+
+async function loadSummary() {
+  try {
+    const payload = await fetchJson<Record<string, number>>(`${ENDPOINT}/summary`)
+    stats.value = [
+      { label: '待交接记录', value: payload['待交接记录'] ?? 0 },
+      { label: '今日交接次数', value: payload['今日交接次数'] ?? 0 },
+      { label: '遗留事项数', value: payload['遗留事项数'] ?? 0 },
+    ]
+  } catch {
+    // 统计卡片读取失败不阻断列表，列表报错会统一提示
   }
 }
 
@@ -126,5 +143,8 @@ async function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  void reload()
+  void loadSummary()
+})
 </script>

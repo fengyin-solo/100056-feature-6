@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.task import leftover_total
 from app.store import store
 
 MODULE = "shift"
@@ -32,6 +33,15 @@ class ShiftService:
 
     def get_entry(self, entry_id: int) -> dict[str, Any] | None:
         return store.find(MODULE, entry_id)
+
+    def summary(self) -> dict[str, int]:
+        """列表上方的统计卡片；遗留事项数与检修任务的遗留问题合计保持同步。"""
+        rows = store.rows(MODULE)
+        return {
+            "待交接记录": sum(1 for row in rows if row.get("status") == "待交接"),
+            "今日交接次数": sum(1 for row in rows if row.get("status") == "已交接"),
+            "遗留事项数": leftover_total(),
+        }
 
     def create_entry(self, values: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
         missing = [field for field in REQUIRED_FIELDS if not str(values.get(field) or "").strip()]
